@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
+import QRCode from '@/components/QRCode';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Loader2, CreditCard, Smartphone, Wallet } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -19,6 +21,7 @@ const Checkout = () => {
   const { user, isAuthenticated } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('upi');
+  const [showQR, setShowQR] = useState(false);
 
   const subtotal = getTotalPrice();
   const platformFee = Math.round(subtotal * 0.02);
@@ -46,6 +49,36 @@ const Checkout = () => {
       return;
     }
 
+    // Show QR code for UPI payments
+    if (paymentMethod === 'upi') {
+      setShowQR(true);
+      return;
+    }
+
+    setIsProcessing(true);
+
+    // Simulate payment processing
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Generate token number
+    const tokenNumber = `CB${Date.now().toString().slice(-6)}`;
+    
+    // Clear cart and navigate to success page
+    clearCart();
+    navigate('/order-success', { 
+      state: { 
+        tokenNumber, 
+        orderTotal: total,
+        items: items,
+        paymentMethod 
+      } 
+    });
+
+    setIsProcessing(false);
+  };
+
+  const handleQRPayment = async () => {
+    setShowQR(false);
     setIsProcessing(true);
 
     // Simulate payment processing
@@ -140,7 +173,7 @@ const Checkout = () => {
                       <Smartphone className="h-5 w-5 mr-3 text-blue-600" />
                       <div>
                         <p className="font-medium">UPI</p>
-                        <p className="text-sm text-gray-600">Pay via UPI apps</p>
+                        <p className="text-sm text-gray-600">Pay via UPI apps (with QR Code)</p>
                       </div>
                     </Label>
                   </div>
@@ -244,6 +277,47 @@ const Checkout = () => {
           </div>
         </div>
       </div>
+
+      {/* QR Code Dialog */}
+      <Dialog open={showQR} onOpenChange={setShowQR}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Scan QR to Pay</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-4">
+            <QRCode value={`₹${total}`} size={250} />
+            <div className="text-center">
+              <p className="font-medium text-lg">₹{total}</p>
+              <p className="text-sm text-gray-600">
+                Use any UPI app to scan and pay
+              </p>
+            </div>
+            <div className="flex space-x-2 w-full">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowQR(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleQRPayment}
+                disabled={isProcessing}
+                className="flex-1"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Payment Done'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
